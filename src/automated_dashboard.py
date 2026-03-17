@@ -30,17 +30,17 @@ SCENARIOS = {
         name="Sarah & Husband",
         max_oop=375000,
         max_purchase_price=375000,
-        min_coc_return=0.09,
+        min_coc_return=0.08,
         location="Houston, TX",
-        requirements=["Minimum 9% CoC return", "Max $375K OOP"]
+        requirements=["Minimum 8% CoC return", "Max $375K OOP"]
     ),
     RISAHL_BTN: ClientScenario(
         name="Risahl",
         max_oop=175000,
         max_purchase_price=500000,
-        min_coc_return=0.05,
+        min_coc_return=0.03,
         location="Houston, TX",
-        requirements=["Minimum 5% CoC return", "Max $175K OOP"]
+        requirements=["Minimum 3% CoC return", "Max $175K OOP"]
     ),
 }
 

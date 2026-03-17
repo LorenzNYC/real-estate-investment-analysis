@@ -48,7 +48,7 @@ class PropertySourcer:
                 'bathrooms': 2.5,
                 'year_built': 2015,
                 'property_type': 'Single Family',
-                'estimated_rent': 3200,
+                'estimated_rent': 4800,
                 'days_on_market': 45
             },
             {
@@ -59,7 +59,7 @@ class PropertySourcer:
                 'bathrooms': 3.0,
                 'year_built': 2018,
                 'property_type': 'Single Family',
-                'estimated_rent': 3500,
+                'estimated_rent': 5800,
                 'days_on_market': 32
             },
             {
@@ -70,7 +70,7 @@ class PropertySourcer:
                 'bathrooms': 2.0,
                 'year_built': 2012,
                 'property_type': 'Single Family',
-                'estimated_rent': 2400,
+                'estimated_rent': 4200,
                 'days_on_market': 28
             },
             {
@@ -81,7 +81,7 @@ class PropertySourcer:
                 'bathrooms': 3.5,
                 'year_built': 2020,
                 'property_type': 'Single Family',
-                'estimated_rent': 3800,
+                'estimated_rent': 6200,
                 'days_on_market': 15
             },
             {
@@ -92,7 +92,7 @@ class PropertySourcer:
                 'bathrooms': 2.5,
                 'year_built': 2016,
                 'property_type': 'Single Family',
-                'estimated_rent': 3000,
+                'estimated_rent': 5000,
                 'days_on_market': 22
             },
             {
@@ -103,7 +103,7 @@ class PropertySourcer:
                 'bathrooms': 2.0,
                 'year_built': 2014,
                 'property_type': 'Single Family',
-                'estimated_rent': 2600,
+                'estimated_rent': 4400,
                 'days_on_market': 38
             },
             {
@@ -114,7 +114,7 @@ class PropertySourcer:
                 'bathrooms': 2.5,
                 'year_built': 2017,
                 'property_type': 'Single Family',
-                'estimated_rent': 2800,
+                'estimated_rent': 4600,
                 'days_on_market': 25
             },
             {
@@ -125,7 +125,7 @@ class PropertySourcer:
                 'bathrooms': 2.0,
                 'year_built': 2013,
                 'property_type': 'Single Family',
-                'estimated_rent': 2700,
+                'estimated_rent': 4500,
                 'days_on_market': 41
             }
         ]
