@@ -184,13 +184,27 @@ def update_property_analysis(sarah_clicks, risahl_clicks):
     
     top_property = results['recommendations'][0]
     
+    # Build scenario cards before constructing the layout
+    scenarios = top_property['scenarios']
+    scenario_cards = []
+    for scenario_type, data in scenarios.items():
+        card = dbc.Card([
+            dbc.CardHeader(scenario_type.title() + " Scenario"),
+            dbc.CardBody([
+                html.P(f"Rent: ${data['rent']:,.0f}/month"),
+                html.P(f"Expenses: ${data['expenses']:,.0f}/month"),
+                html.P(f"CoC Return: {data['coc_return']:.1%}")
+            ])
+        ], className="mb-2")
+        scenario_cards.append(card)
+
     # Create detailed analysis
     analysis = dbc.Card([
         dbc.CardHeader("Detailed Property Analysis"),
         dbc.CardBody([
             html.H4(top_property['address']),
             html.Hr(),
-            
+
             # Financial Summary
             html.H5("Financial Summary"),
             dbc.Row([
@@ -205,28 +219,13 @@ def update_property_analysis(sarah_clicks, risahl_clicks):
                     html.P(f"Risk Level: {top_property['risk_level']}")
                 ], width=6)
             ]),
-            
+
             html.Hr(),
-            
+
             # Scenario Analysis
             html.H5("Scenario Analysis"),
-            scenarios = top_property['scenarios']
-            scenario_cards = []
-            for scenario_type, data in scenarios.items():
-                card = dbc.Card([
-                    dbc.CardHeader(scenario_type.title() + " Scenario"),
-                    dbc.CardBody([
-                        html.P(f"Rent: ${data['rent']:,.0f}/month"),
-                        html.P(f"Expenses: ${data['expenses']:,.0f}/month"),
-                        html.P(f"CoC Return: {data['coc_return']:.1%}")
-                    ])
-                ], className="mb-2")
-                scenario_cards.append(card)
-            
             dbc.Row([
-                dbc.Col(scenario_cards[0], width=4),
-                dbc.Col(scenario_cards[1], width=4),
-                dbc.Col(scenario_cards[2], width=4)
+                dbc.Col(card, width=4) for card in scenario_cards
             ])
         ])
     ])
