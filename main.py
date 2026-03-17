@@ -5,14 +5,7 @@ Real Estate Underwriting Application
 Main application that runs the complete automated underwriting system.
 """
 
-import sys
-import os
 import argparse
-from typing import Dict, List
-import json
-
-# Add src to path
-sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
 
 from src.underwriting_engine import UnderwritingEngine, PropertyData
 from src.property_sourcer import PropertySourcer, ClientScenario
@@ -31,18 +24,18 @@ def run_analysis():
         name="Sarah & Husband",
         max_oop=375000,
         max_purchase_price=375000,
-        min_coc_return=0.09,
+        min_coc_return=0.08,
         location="Houston, TX",
-        requirements=["Minimum 9% CoC return", "Max $375K OOP"]
+        requirements=["Minimum 8% CoC return", "Max $375K OOP"]
     )
-    
+
     risahl = ClientScenario(
         name="Risahl",
         max_oop=175000,
         max_purchase_price=500000,
-        min_coc_return=0.05,
+        min_coc_return=0.03,
         location="Houston, TX",
-        requirements=["Minimum 5% CoC return", "Max $175K OOP"]
+        requirements=["Minimum 3% CoC return", "Max $175K OOP"]
     )
     
     # Analyze scenarios
@@ -135,7 +128,7 @@ def run_test():
         bathrooms=2.5,
         year_built=2015,
         property_type="Single Family",
-        estimated_rent=3200,
+        estimated_rent=4800,
         days_on_market=45,
         listing_url="https://example.com"
     )

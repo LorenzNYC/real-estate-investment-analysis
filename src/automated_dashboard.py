@@ -6,45 +6,43 @@ Comprehensive dashboard integrating underwriting engine and property sourcing.
 """
 
 import dash
-from dash import dcc, html, Input, Output, callback
+from dash import dcc, html
 import dash_bootstrap_components as dbc
 import plotly.graph_objs as go
-import plotly.express as px
-from dash.dependencies import Input, Output, State
-import pandas as pd
-import numpy as np
-from typing import Dict, List
-import json
+from dash.dependencies import Input, Output
 
-from src.underwriting_engine import UnderwritingEngine, PropertyData
 from src.property_sourcer import PropertySourcer, ClientScenario
 
 # Initialize the Dash app
 app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
 server = app.server
 
-# Initialize engines
-underwriting_engine = UnderwritingEngine()
+# Initialize engine
 property_sourcer = PropertySourcer()
 
-# Define client scenarios
-SARAH_HUSBAND = ClientScenario(
-    name="Sarah & Husband",
-    max_oop=375000,
-    max_purchase_price=375000,
-    min_coc_return=0.09,
-    location="Houston, TX",
-    requirements=["Minimum 9% CoC return", "Max $375K OOP"]
-)
+# Button ID constants
+SARAH_BTN = "sarah-btn"
+RISAHL_BTN = "risahl-btn"
 
-RISAHL = ClientScenario(
-    name="Risahl",
-    max_oop=175000,
-    max_purchase_price=500000,
-    min_coc_return=0.05,
-    location="Houston, TX",
-    requirements=["Minimum 5% CoC return", "Max $175K OOP"]
-)
+# Define client scenarios
+SCENARIOS = {
+    SARAH_BTN: ClientScenario(
+        name="Sarah & Husband",
+        max_oop=375000,
+        max_purchase_price=375000,
+        min_coc_return=0.08,
+        location="Houston, TX",
+        requirements=["Minimum 8% CoC return", "Max $375K OOP"]
+    ),
+    RISAHL_BTN: ClientScenario(
+        name="Risahl",
+        max_oop=175000,
+        max_purchase_price=500000,
+        min_coc_return=0.03,
+        location="Houston, TX",
+        requirements=["Minimum 3% CoC return", "Max $175K OOP"]
+    ),
+}
 
 # App layout
 app.layout = dbc.Container([
@@ -54,93 +52,88 @@ app.layout = dbc.Container([
             html.Hr()
         ])
     ]),
-    
+
     # Scenario Selection
     dbc.Row([
         dbc.Col([
             html.H3("Client Scenario Analysis"),
             dbc.ButtonGroup([
-                dbc.Button("Sarah & Husband", id="sarah-btn", color="primary", n_clicks=0),
-                dbc.Button("Risahl", id="risahl-btn", color="secondary", n_clicks=0)
+                dbc.Button("Sarah & Husband", id=SARAH_BTN, color="primary", n_clicks=0),
+                dbc.Button("Risahl", id=RISAHL_BTN, color="secondary", n_clicks=0)
             ], className="mb-3")
         ])
     ]),
-    
+
     # Results Display
-    dbc.Row([
-        dbc.Col([
-            html.Div(id="scenario-results")
-        ])
-    ]),
-    
+    dbc.Row([dbc.Col([html.Div(id="scenario-results")])]),
+
     # Property Analysis
-    dbc.Row([
-        dbc.Col([
-            html.H3("Property Analysis"),
-            html.Div(id="property-analysis")
-        ])
-    ]),
-    
+    dbc.Row([dbc.Col([html.H3("Property Analysis"), html.Div(id="property-analysis")])]),
+
     # Charts
     dbc.Row([
-        dbc.Col([
-            dcc.Graph(id="coc-comparison-chart")
-        ], width=6),
-        dbc.Col([
-            dcc.Graph(id="cash-flow-chart")
-        ], width=6)
+        dbc.Col([dcc.Graph(id="coc-comparison-chart")], width=6),
+        dbc.Col([dcc.Graph(id="cash-flow-chart")], width=6)
     ]),
-    
+
     # Optimization Opportunities
-    dbc.Row([
-        dbc.Col([
-            html.H3("Optimization Opportunities"),
-            html.Div(id="optimization-opportunities")
-        ])
-    ]),
-    
+    dbc.Row([dbc.Col([html.H3("Optimization Opportunities"), html.Div(id="optimization-opportunities")])]),
+
     # Risk Assessment
-    dbc.Row([
-        dbc.Col([
-            html.H3("Risk Assessment"),
-            html.Div(id="risk-assessment")
-        ])
-    ])
+    dbc.Row([dbc.Col([html.H3("Risk Assessment"), html.Div(id="risk-assessment")])])
 ], fluid=True)
 
-@app.callback(
-    Output("scenario-results", "children"),
-    [Input("sarah-btn", "n_clicks"),
-     Input("risahl-btn", "n_clicks")]
-)
-def update_scenario_results(sarah_clicks, risahl_clicks):
-    """Update scenario results based on button clicks"""
+
+def _get_scenario_from_context():
+    """Return the scenario matching the clicked button, or None."""
     ctx = dash.callback_context
     if not ctx.triggered:
-        return html.P("Select a scenario to analyze")
-    
+        return None
     button_id = ctx.triggered[0]['prop_id'].split('.')[0]
-    
-    if button_id == "sarah-btn":
-        scenario = SARAH_HUSBAND
-    elif button_id == "risahl-btn":
-        scenario = RISAHL
-    else:
-        return html.P("Select a scenario to analyze")
-    
-    # Analyze scenario
+    return SCENARIOS.get(button_id)
+
+
+@app.callback(
+    [Output("scenario-results", "children"),
+     Output("property-analysis", "children"),
+     Output("coc-comparison-chart", "figure"),
+     Output("cash-flow-chart", "figure"),
+     Output("optimization-opportunities", "children"),
+     Output("risk-assessment", "children")],
+    [Input(SARAH_BTN, "n_clicks"),
+     Input(RISAHL_BTN, "n_clicks")]
+)
+def update_all(sarah_clicks, risahl_clicks):
+    """Single callback that runs analysis once and updates all outputs."""
+    scenario = _get_scenario_from_context()
+    if scenario is None:
+        return (
+            html.P("Select a scenario to analyze"),
+            html.P("Select a scenario to view property analysis"),
+            go.Figure(),
+            go.Figure(),
+            html.P("Select a scenario to view optimization opportunities"),
+            html.P("Select a scenario to view risk assessment"),
+        )
+
+    # Run analysis ONCE
     results = property_sourcer.analyze_scenario(scenario)
-    
+
+    # 1. Scenario results cards
     if results['properties_found'] == 0:
-        return dbc.Alert(
+        scenario_results = dbc.Alert(
             f"No properties found meeting requirements for {scenario.name}",
             color="warning"
         )
-    
-    # Create results cards
+        return (scenario_results, html.P("No properties found"), go.Figure(),
+                go.Figure(), html.P("No properties found"), html.P("No properties found"))
+
+    recs = results['recommendations']
+
+    # --- Scenario Results ---
     cards = []
-    for i, rec in enumerate(results['recommendations']):
-        card = dbc.Card([
+    for i, rec in enumerate(recs):
+        cards.append(dbc.Card([
             dbc.CardHeader(f"Property {i+1}: {rec['address']}"),
             dbc.CardBody([
                 html.H5(f"Purchase Price: ${rec['purchase_price']:,.0f}"),
@@ -152,288 +145,98 @@ def update_scenario_results(sarah_clicks, risahl_clicks):
                 html.P(f"Recommendation: {rec['recommendation']}"),
                 html.P(f"Optimization Opportunities: {rec['optimization_opportunities']}")
             ])
-        ], className="mb-3")
-        cards.append(card)
-    
-    return cards
+        ], className="mb-3"))
 
-@app.callback(
-    Output("property-analysis", "children"),
-    [Input("sarah-btn", "n_clicks"),
-     Input("risahl-btn", "n_clicks")]
-)
-def update_property_analysis(sarah_clicks, risahl_clicks):
-    """Update detailed property analysis"""
-    ctx = dash.callback_context
-    if not ctx.triggered:
-        return html.P("Select a scenario to view property analysis")
-    
-    button_id = ctx.triggered[0]['prop_id'].split('.')[0]
-    
-    if button_id == "sarah-btn":
-        scenario = SARAH_HUSBAND
-    elif button_id == "risahl-btn":
-        scenario = RISAHL
-    else:
-        return html.P("Select a scenario to view property analysis")
-    
-    # Get top property for detailed analysis
-    results = property_sourcer.analyze_scenario(scenario)
-    if not results['recommendations']:
-        return html.P("No properties found for detailed analysis")
-    
-    top_property = results['recommendations'][0]
-    
-    # Create detailed analysis
-    analysis = dbc.Card([
+    # --- Property Analysis (top property) ---
+    top = recs[0]
+    scenario_cards = []
+    for stype, data in top['scenarios'].items():
+        scenario_cards.append(dbc.Card([
+            dbc.CardHeader(stype.title() + " Scenario"),
+            dbc.CardBody([
+                html.P(f"Rent: ${data['rent']:,.0f}/month"),
+                html.P(f"Expenses: ${data['expenses']:,.0f}/month"),
+                html.P(f"CoC Return: {data['coc_return']:.1%}")
+            ])
+        ], className="mb-2"))
+
+    property_analysis = dbc.Card([
         dbc.CardHeader("Detailed Property Analysis"),
         dbc.CardBody([
-            html.H4(top_property['address']),
+            html.H4(top['address']),
             html.Hr(),
-            
-            # Financial Summary
             html.H5("Financial Summary"),
             dbc.Row([
                 dbc.Col([
-                    html.P(f"Purchase Price: ${top_property['purchase_price']:,.0f}"),
-                    html.P(f"Down Payment: ${top_property['down_payment']:,.0f}"),
-                    html.P(f"Total OOP: ${top_property['total_oop']:,.0f}")
+                    html.P(f"Purchase Price: ${top['purchase_price']:,.0f}"),
+                    html.P(f"Down Payment: ${top['down_payment']:,.0f}"),
+                    html.P(f"Total OOP: ${top['total_oop']:,.0f}")
                 ], width=6),
                 dbc.Col([
-                    html.P(f"CoC Return: {top_property['coc_return']:.1%}"),
-                    html.P(f"Monthly Cash Flow: ${top_property['monthly_cash_flow']:,.0f}"),
-                    html.P(f"Risk Level: {top_property['risk_level']}")
+                    html.P(f"CoC Return: {top['coc_return']:.1%}"),
+                    html.P(f"Monthly Cash Flow: ${top['monthly_cash_flow']:,.0f}"),
+                    html.P(f"Risk Level: {top['risk_level']}")
                 ], width=6)
             ]),
-            
             html.Hr(),
-            
-            # Scenario Analysis
             html.H5("Scenario Analysis"),
-            scenarios = top_property['scenarios']
-            scenario_cards = []
-            for scenario_type, data in scenarios.items():
-                card = dbc.Card([
-                    dbc.CardHeader(scenario_type.title() + " Scenario"),
-                    dbc.CardBody([
-                        html.P(f"Rent: ${data['rent']:,.0f}/month"),
-                        html.P(f"Expenses: ${data['expenses']:,.0f}/month"),
-                        html.P(f"CoC Return: {data['coc_return']:.1%}")
-                    ])
-                ], className="mb-2")
-                scenario_cards.append(card)
-            
-            dbc.Row([
-                dbc.Col(scenario_cards[0], width=4),
-                dbc.Col(scenario_cards[1], width=4),
-                dbc.Col(scenario_cards[2], width=4)
-            ])
+            dbc.Row([dbc.Col(card, width=4) for card in scenario_cards])
         ])
     ])
-    
-    return analysis
 
-@app.callback(
-    Output("coc-comparison-chart", "figure"),
-    [Input("sarah-btn", "n_clicks"),
-     Input("risahl-btn", "n_clicks")]
-)
-def update_coc_chart(sarah_clicks, risahl_clicks):
-    """Update CoC comparison chart"""
-    ctx = dash.callback_context
-    if not ctx.triggered:
-        return go.Figure()
-    
-    button_id = ctx.triggered[0]['prop_id'].split('.')[0]
-    
-    if button_id == "sarah-btn":
-        scenario = SARAH_HUSBAND
-    elif button_id == "risahl-btn":
-        scenario = RISAHL
-    else:
-        return go.Figure()
-    
-    results = property_sourcer.analyze_scenario(scenario)
-    if not results['recommendations']:
-        return go.Figure()
-    
-    # Create CoC comparison chart
-    addresses = [rec['address'][:20] + "..." for rec in results['recommendations']]
-    coc_returns = [rec['coc_return'] * 100 for rec in results['recommendations']]
-    
-    fig = go.Figure(data=[
-        go.Bar(
-            x=addresses,
-            y=coc_returns,
-            text=[f"{coc:.1f}%" for coc in coc_returns],
-            textposition='auto',
-        )
-    ])
-    
-    fig.update_layout(
-        title="Cash-on-Cash Return Comparison",
-        xaxis_title="Properties",
-        yaxis_title="CoC Return (%)",
-        height=400
-    )
-    
-    return fig
+    # --- CoC Chart ---
+    addresses = [rec['address'][:20] + "..." for rec in recs]
+    coc_returns = [rec['coc_return'] * 100 for rec in recs]
+    coc_fig = go.Figure(data=[go.Bar(
+        x=addresses, y=coc_returns,
+        text=[f"{coc:.1f}%" for coc in coc_returns], textposition='auto',
+    )])
+    coc_fig.update_layout(title="Cash-on-Cash Return Comparison",
+                          xaxis_title="Properties", yaxis_title="CoC Return (%)", height=400)
 
-@app.callback(
-    Output("cash-flow-chart", "figure"),
-    [Input("sarah-btn", "n_clicks"),
-     Input("risahl-btn", "n_clicks")]
-)
-def update_cash_flow_chart(sarah_clicks, risahl_clicks):
-    """Update cash flow chart"""
-    ctx = dash.callback_context
-    if not ctx.triggered:
-        return go.Figure()
-    
-    button_id = ctx.triggered[0]['prop_id'].split('.')[0]
-    
-    if button_id == "sarah-btn":
-        scenario = SARAH_HUSBAND
-    elif button_id == "risahl-btn":
-        scenario = RISAHL
-    else:
-        return go.Figure()
-    
-    results = property_sourcer.analyze_scenario(scenario)
-    if not results['recommendations']:
-        return go.Figure()
-    
-    # Create cash flow chart
-    addresses = [rec['address'][:20] + "..." for rec in results['recommendations']]
-    cash_flows = [rec['monthly_cash_flow'] for rec in results['recommendations']]
-    
-    fig = go.Figure(data=[
-        go.Bar(
-            x=addresses,
-            y=cash_flows,
-            text=[f"${cf:,.0f}" for cf in cash_flows],
-            textposition='auto',
-        )
-    ])
-    
-    fig.update_layout(
-        title="Monthly Cash Flow Comparison",
-        xaxis_title="Properties",
-        yaxis_title="Monthly Cash Flow ($)",
-        height=400
-    )
-    
-    return fig
+    # --- Cash Flow Chart ---
+    cash_flows = [rec['monthly_cash_flow'] for rec in recs]
+    cf_fig = go.Figure(data=[go.Bar(
+        x=addresses, y=cash_flows,
+        text=[f"${cf:,.0f}" for cf in cash_flows], textposition='auto',
+    )])
+    cf_fig.update_layout(title="Monthly Cash Flow Comparison",
+                         xaxis_title="Properties", yaxis_title="Monthly Cash Flow ($)", height=400)
 
-@app.callback(
-    Output("optimization-opportunities", "children"),
-    [Input("sarah-btn", "n_clicks"),
-     Input("risahl-btn", "n_clicks")]
-)
-def update_optimization_opportunities(sarah_clicks, risahl_clicks):
-    """Update optimization opportunities"""
-    ctx = dash.callback_context
-    if not ctx.triggered:
-        return html.P("Select a scenario to view optimization opportunities")
-    
-    button_id = ctx.triggered[0]['prop_id'].split('.')[0]
-    
-    if button_id == "sarah-btn":
-        scenario = SARAH_HUSBAND
-    elif button_id == "risahl-btn":
-        scenario = RISAHL
-    else:
-        return html.P("Select a scenario to view optimization opportunities")
-    
-    results = property_sourcer.analyze_scenario(scenario)
-    if not results['recommendations']:
-        return html.P("No properties found for optimization analysis")
-    
-    # Get optimization opportunities for top property
-    top_property_data = None
-    for prop in property_sourcer.generate_houston_properties(scenario.max_purchase_price, scenario.min_coc_return):
-        if prop.address == results['recommendations'][0]['address']:
-            top_property_data = prop
-            break
-    
-    if not top_property_data:
-        return html.P("Property data not found")
-    
-    # Perform underwriting analysis to get optimization opportunities
-    underwriting_result = underwriting_engine.underwrite_property(top_property_data)
-    
-    # Create optimization opportunities cards
-    cards = []
-    for opp in underwriting_result.optimization_opportunities:
-        card = dbc.Card([
+    # --- Optimization & Risk (from already-computed underwriting result) ---
+    uw_result = top['underwriting_result']
+    opt_cards = []
+    for opp in uw_result.optimization_opportunities:
+        roi_text = f"ROI: {opp['roi']:.1%}" if opp['roi'] != float('inf') else "ROI: Infinite"
+        opt_cards.append(dbc.Card([
             dbc.CardHeader(f"{opp['title']} ({opp['category']})"),
             dbc.CardBody([
                 html.P(opp['description']),
                 html.P(f"Investment: ${opp['investment']:,.0f}"),
                 html.P(f"Annual Benefit: ${opp['annual_benefit']:,.0f}"),
-                html.P(f"ROI: {opp['roi']:.1%}" if opp['roi'] != float('inf') else "ROI: Infinite"),
+                html.P(roi_text),
                 html.P(f"Implementation Time: {opp['implementation_time']}"),
                 html.P(f"Priority: {opp['priority']}"),
                 html.P(f"Risk Level: {opp['risk_level']}")
             ])
-        ], className="mb-2")
-        cards.append(card)
-    
-    return cards
+        ], className="mb-2"))
 
-@app.callback(
-    Output("risk-assessment", "children"),
-    [Input("sarah-btn", "n_clicks"),
-     Input("risahl-btn", "n_clicks")]
-)
-def update_risk_assessment(sarah_clicks, risahl_clicks):
-    """Update risk assessment"""
-    ctx = dash.callback_context
-    if not ctx.triggered:
-        return html.P("Select a scenario to view risk assessment")
-    
-    button_id = ctx.triggered[0]['prop_id'].split('.')[0]
-    
-    if button_id == "sarah-btn":
-        scenario = SARAH_HUSBAND
-    elif button_id == "risahl-btn":
-        scenario = RISAHL
-    else:
-        return html.P("Select a scenario to view risk assessment")
-    
-    results = property_sourcer.analyze_scenario(scenario)
-    if not results['recommendations']:
-        return html.P("No properties found for risk assessment")
-    
-    # Get risk assessment for top property
-    top_property_data = None
-    for prop in property_sourcer.generate_houston_properties(scenario.max_purchase_price, scenario.min_coc_return):
-        if prop.address == results['recommendations'][0]['address']:
-            top_property_data = prop
-            break
-    
-    if not top_property_data:
-        return html.P("Property data not found")
-    
-    # Perform underwriting analysis to get risk assessment
-    underwriting_result = underwriting_engine.underwrite_property(top_property_data)
-    
-    # Create risk assessment card
     risk_card = dbc.Card([
         dbc.CardHeader("Risk Assessment"),
         dbc.CardBody([
-            html.H5(f"Risk Level: {underwriting_result.risk_assessment['risk_level']}"),
-            html.P(f"Risk Score: {underwriting_result.risk_assessment['risk_score']}"),
+            html.H5(f"Risk Level: {uw_result.risk_assessment['risk_level']}"),
+            html.P(f"Risk Score: {uw_result.risk_assessment['risk_score']}"),
             html.Hr(),
             html.H6("Risk Factors:"),
-            html.Ul([html.Li(factor) for factor in underwriting_result.risk_assessment['risk_factors']]),
+            html.Ul([html.Li(f) for f in uw_result.risk_assessment['risk_factors']]),
             html.Hr(),
             html.H6("Mitigation Strategies:"),
-            html.Ul([html.Li(strategy) for strategy in underwriting_result.risk_assessment['mitigation_strategies']])
+            html.Ul([html.Li(s) for s in uw_result.risk_assessment['mitigation_strategies']])
         ])
     ])
-    
-    return risk_card
+
+    return cards, property_analysis, coc_fig, cf_fig, opt_cards, risk_card
+
 
 if __name__ == "__main__":
     app.run_server(debug=True, host='0.0.0.0', port=8050)
