@@ -5,11 +5,8 @@ Property Sourcing Engine
 Sources properties from multiple platforms and integrates with underwriting engine.
 """
 
-import pandas as pd
-import numpy as np
-from typing import List, Dict, Optional
+from typing import List, Dict
 from dataclasses import dataclass
-import random
 from src.underwriting_engine import PropertyData, UnderwritingEngine
 
 @dataclass
@@ -149,11 +146,22 @@ class PropertySourcer:
                     listing_url=f"https://example.com/property/{template['purchase_price']}"
                 )
                 
-                # Perform underwriting analysis
-                result = self.engine.underwrite_property(property_data)
-                
-                # Check if meets minimum CoC return
-                if result.coc_return >= min_coc:
+                # Quick CoC estimate for filtering (avoids full underwriting)
+                mortgage = self.engine.calculate_mortgage(
+                    template['purchase_price'],
+                    self.engine.financial_data.down_payment_pct,
+                    self.engine.financial_data.interest_rate
+                )
+                opex = self.engine.calculate_operating_expenses(
+                    template['purchase_price'], template['estimated_rent']
+                )
+                cf = self.engine.calculate_cash_flow(
+                    template['estimated_rent'], opex, mortgage['monthly_payment']
+                )
+                coc = self.engine.calculate_coc_return(
+                    cf['annual_cash_flow'], mortgage['down_payment']
+                )
+                if coc >= min_coc:
                     properties.append(property_data)
         
         return properties
@@ -220,15 +228,18 @@ class PropertySourcer:
                 'recommendation': result.recommendation,
                 'risk_level': result.risk_assessment['risk_level'],
                 'optimization_opportunities': len(result.optimization_opportunities),
-                'scenarios': result.scenarios
+                'scenarios': result.scenarios,
+                'underwriting_result': result,
             }
             
             recommendations.append(recommendation)
         
         # Calculate summary statistics
         total_investment = sum(p['underwriting_result'].mortgage_details['total_oop'] for p in properties)
-        avg_coc = np.mean([p['underwriting_result'].coc_return for p in properties])
-        avg_cash_flow = np.mean([p['underwriting_result'].cash_flow_analysis['monthly_cash_flow'] for p in properties])
+        coc_values = [p['underwriting_result'].coc_return for p in properties]
+        avg_coc = sum(coc_values) / len(coc_values)
+        cf_values = [p['underwriting_result'].cash_flow_analysis['monthly_cash_flow'] for p in properties]
+        avg_cash_flow = sum(cf_values) / len(cf_values)
         
         return {
             'scenario': scenario,

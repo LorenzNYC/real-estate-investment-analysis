@@ -5,14 +5,7 @@ Real Estate Underwriting Application
 Main application that runs the complete automated underwriting system.
 """
 
-import sys
-import os
 import argparse
-from typing import Dict, List
-import json
-
-# Add src to path
-sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
 
 from src.underwriting_engine import UnderwritingEngine, PropertyData
 from src.property_sourcer import PropertySourcer, ClientScenario

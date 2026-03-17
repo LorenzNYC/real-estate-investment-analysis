@@ -6,11 +6,8 @@ Implements exact Google Sheets formulas and calculation methodology
 for comprehensive property underwriting analysis.
 """
 
-import pandas as pd
-import numpy as np
 from dataclasses import dataclass
-from typing import Dict, List, Tuple, Optional
-import math
+from typing import Dict, List, Optional
 from datetime import datetime
 
 @dataclass
@@ -39,6 +36,7 @@ class FinancialData:
     management_rate: float = 0.08
     vacancy_rate: float = 0.05
     closing_costs_pct: float = 0.03
+    annual_appreciation_rate: float = 0.035
 
 @dataclass
 class OperatingExpenses:
@@ -167,11 +165,11 @@ class UnderwritingEngine:
         Calculate cash flow using exact Google Sheets formula
         Formula: =Monthly_Rent - Monthly_Expenses - Monthly_Mortgage_Payment
         """
-        # Total Monthly Expenses (excluding vacancy as it's already factored into rent)
+        # Total Monthly Expenses (including vacancy allowance)
         total_monthly_expenses = (
             opex.internet + opex.water + opex.electricity + opex.natural_gas +
             opex.pest_control + opex.pool_maintenance + opex.property_tax +
-            opex.insurance + opex.maintenance + opex.management
+            opex.insurance + opex.maintenance + opex.management + opex.vacancy
         )
         
         # Net Operating Income: =Monthly_Rent - Monthly_Expenses
@@ -443,8 +441,18 @@ class UnderwritingEngine:
             mortgage_details['down_payment']
         )
         
-        # Calculate ROI
-        roi = coc_return
+        # ROI includes CoC return plus estimated appreciation and year-1 principal paydown
+        annual_appreciation = property_data.purchase_price * self.financial_data.annual_appreciation_rate
+        # Year-1 principal paydown via amortization: sum of (payment - interest) each month
+        balance = mortgage_details['loan_amount']
+        annual_principal_paydown = 0.0
+        for _ in range(12):
+            month_interest = balance * mortgage_details['monthly_rate']
+            month_principal = mortgage_details['monthly_payment'] - month_interest
+            annual_principal_paydown += month_principal
+            balance -= month_principal
+        total_annual_return = cash_flow['annual_cash_flow'] + annual_appreciation + annual_principal_paydown
+        roi = total_annual_return / mortgage_details['total_oop'] if mortgage_details['total_oop'] > 0 else 0.0
         
         # Analyze scenarios
         scenarios = {}
